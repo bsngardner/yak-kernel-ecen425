@@ -31,4 +31,4 @@ clib.h:
 	curl -O "http://ece425web.groups.et.byu.net/stable/labs/library/clib.h"
 
 clean:
-	rm -f app-l4b.s kern.s app.s yakc.s inth.s clib.s *.i *.bin *.lst
+	rm -f app-l4b.s kern.s app.s yakc.s inth.s *.i *.bin *.lst

@@ -1,5 +1,5 @@
-	;; lab3asm.s
-
+	;; isr.s
+	
 reset_isr:
 	push	ax
 	push	bx
@@ -11,11 +11,13 @@ reset_isr:
 	push	es
 	push	ds
 	sti
+	call	YKEnterISR
 
 	call	reset_handler
 
 	cli
 	call	signalEOI
+	call	YKExitISR
 	pop	ds
 	pop	es
 	pop	bp
@@ -38,11 +40,13 @@ tick_isr:
 	push	es
 	push	ds
 	sti
+	call	YKEnterISR
 
 	call	tick_handler
 
 	cli
 	call	signalEOI
+	call	YKExitISR
 	pop	ds
 	pop	es
 	pop	bp
@@ -65,11 +69,13 @@ key_isr:
 	push	es
 	push	ds
 	sti
+	call	YKEnterISR
 	
 	call	key_handler
 
 	cli
 	call	signalEOI
+	call	YKExitISR
 	pop	ds
 	pop	es
 	pop	bp
