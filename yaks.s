@@ -8,6 +8,23 @@ YKExitMutex:
         sti
         ret
 
+YKEnterISR:
+        inc     word[YKCallDepth]
+        ret
+
+YKExitISR:
+        push    ax
+        mov	ax, word [YKCallDepth]
+	dec	ax
+	mov	word [YKCallDepth], ax
+	test	ax, ax
+	jne	L_yakc_24
+        pop     ax
+        
+        call	YKScheduler
+        
+        ret
+
 YKDispatcher:
 	push	bp
 	mov	bp, sp
@@ -19,7 +36,7 @@ YKDispatcher:
 	mov	sp, word[bx+6]	;restore sp
 	inc	word[YKCtxSwCount] ;Increment context switch counter
 	mov	[active_task],bx
-	
+
 	sti			;Atomic
 	pop	bx
 	ret
