@@ -1,13 +1,13 @@
 #YAK kernel Makefile
 
-app-l4b.bin: app-l4b.s
-	nasm app-l4b.s -o app-l4b.bin -l app-l4b.lst
+run.bin: run.s
+	nasm run.s -o run.bin -l run.lst
 
-app-l4b.s: kern.s app.s
-	cat kern.s app.s > app-l4b.s
+run.s: kern.s app.s
+	cat kern.s app.s > run.s
 
-app.s: lab4b_app.c
-	cpp lab4b_app.c app.i
+app.s: lab4c_app.c
+	cpp lab4c_app.c app.i
 	c86 -g app.i app.s
 
 kern.s: clib.s isr.s inth.s yakc.s yaks.s

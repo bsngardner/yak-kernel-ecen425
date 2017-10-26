@@ -7,7 +7,8 @@ typedef struct tcb{
   char priority;    //[ptr+3]
   int ss;           //[ptr+4]
   int* sp;          //[ptr+6]
-  struct tcb* next; //[ptr+8]
+  int tick_num;     //[ptr+8]
+  struct tcb* next; //[ptr+10]
 }tcb_t;
 
 void YKInitialize(void);
@@ -18,9 +19,11 @@ void YKEnterISR(void);
 void YKExitISR(void);
 void YKExitMutex(void);
 void YKEnterMutex(void);
+void YKTickHandler(void);
 
 extern int YKIdleCount;
 extern int YKCallDepth;
 extern int YKCtxSwCount;
+extern int YKTickNum;
 
 #endif /* YAKK_H */

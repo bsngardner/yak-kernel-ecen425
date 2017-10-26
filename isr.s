@@ -42,6 +42,7 @@ tick_isr:
 	sti
 	call	YKEnterISR
 
+	call	YKTickHandler
 	call	tick_handler
 
 	cli

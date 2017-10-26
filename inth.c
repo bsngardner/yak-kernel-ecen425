@@ -17,11 +17,9 @@ void reset_handler(){
 }
 
 void tick_handler(){
-  static unsigned int tick_count = 0;
-  //  printNewLine();
+  printNewLine();
   printString("TICK ");
-  ++tick_count;
-  printUInt(tick_count);
+  printUInt(YKTickNum);
   printNewLine();
 }
 
