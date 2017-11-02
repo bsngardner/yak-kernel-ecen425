@@ -6,8 +6,8 @@ run.bin: run.s
 run.s: kern.s app.s
 	cat kern.s app.s > run.s
 
-app.s: lab4c_app.c
-	cpp lab4c_app.c app.i
+app.s: lab5app.c
+	cpp lab5app.c app.i
 	c86 -g app.i app.s
 
 kern.s: clib.s isr.s inth.s yakc.s yaks.s

@@ -11,6 +11,12 @@ typedef struct tcb{
   struct tcb* next; //[ptr+10]
 }tcb_t;
 
+typedef struct {
+  int id;
+  int counter;
+  tcb_t* pend_task;
+} YKSEM;
+
 void YKInitialize(void);
 void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority);
 void YKRun(void);
@@ -20,6 +26,10 @@ void YKExitISR(void);
 void YKExitMutex(void);
 void YKEnterMutex(void);
 void YKTickHandler(void);
+YKSEM* YKSemCreate(int initial_value);
+void YKSemPend(YKSEM* semaphore);
+void YKSemPost(YKSEM* semaphore);
+
 
 extern int YKIdleCount;
 extern int YKCallDepth;

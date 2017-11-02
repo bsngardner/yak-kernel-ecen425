@@ -10,6 +10,7 @@
 #include "yaku.h"
 
 extern int KeyBuffer;
+extern YKSEM* NSemPtr;
 
 void reset_handler(){
   exit(0);
@@ -31,6 +32,8 @@ void key_handler(){
     while(wait_count-->0);
     printNewLine();
     printString("DELAY COMPLETE");
+  }else if((char) KeyBuffer == 'p'){
+    YKSemPost(NSemPtr);
   }else{
     printString("KEYPRESS (");
     printChar((char) KeyBuffer);
