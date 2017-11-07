@@ -13,6 +13,7 @@ static void add_task(tcb_t** root, tcb_t* task);
 static tcb_t* pop_task(tcb_t** root);
 static void block_task(tcb_t* task);
 
+void YKIdleTask(void);
 void YKScheduler(void);
 void YKDispatcher(void);
 void YKIdleTask(void);
@@ -46,12 +47,6 @@ void YKInitialize(void){
      //profit
 }
 
-void YKIdleTask(void){
-     while(1){
-        YKIdleCount++;	//Make sure this loop is 4 instructions
-     }
-}
-
 void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
   tcb_t* task_tcb;
   YKEnterMutex();
@@ -63,7 +58,7 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
 
   task_tcb = tcb_memory + tcb_dex;
   task_tcb->id = tcb_dex++;
-  task_tcb->state = 1;
+  //  task_tcb->state = 1;   //Removed -- unneeded for linked list implementation
   task_tcb->priority = priority;
   task_tcb->next = 0;
   task_tcb->sp = (int*)((char*)taskStack);

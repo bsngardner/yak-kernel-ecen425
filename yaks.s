@@ -8,6 +8,12 @@ YKExitMutex:
         sti
         ret
 
+YKIdleTask:
+	inc	word [YKIdleCount]
+	nop
+	nop
+	jmp	YKIdleTask
+
 YKScheduler:
 	; >>>>> if(!kernel_running || active_task == ready_task){ 
 	mov	ax, word [kernel_running]
