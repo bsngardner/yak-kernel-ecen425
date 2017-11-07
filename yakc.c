@@ -8,11 +8,15 @@
 #define INITIAL_FLAGS 0x0200
 #define INTSIZE 2
 
-//Local prototypes
-static void add_task(tcb_t** root, tcb_t* task);
-static tcb_t* pop_task(tcb_t** root);
-static void block_task(tcb_t* task);
+#define READY 0
+#define DELAYED 1
+#define PENDING 2
 
+//Local prototypes
+static void insert_task(tcb_t* task);
+static void find_ready_task(void);
+
+void YKIdleTask(void);
 void YKScheduler(void);
 void YKDispatcher(void);
 void YKIdleTask(void);
@@ -20,6 +24,8 @@ void YKIdleTask(void);
 tcb_t init_tcb;
 tcb_t tcb_memory[MAX_TCB_COUNT];
 int tcb_dex = 0;
+
+tcb_t* task_list[MAX_TCB_COUNT];
 
 tcb_t* active_task = &init_tcb;
 tcb_t* ready_task = 0;
@@ -40,16 +46,10 @@ int YKTickNum = 0;
 void YKInitialize(void){
 
   YKNewTask(YKIdleTask, &idle_stack[STACK_SIZE], LOWEST_PRIORITY);
-
+  ready_task = task_list[0];
      //create idle task tcb and put it in the ready queue
      //??
      //profit
-}
-
-void YKIdleTask(void){
-     while(1){
-        YKIdleCount++;	//Make sure this loop is 4 instructions
-     }
 }
 
 void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
@@ -63,12 +63,11 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
 
   task_tcb = tcb_memory + tcb_dex;
   task_tcb->id = tcb_dex++;
-  task_tcb->state = 1;
   task_tcb->priority = priority;
-  task_tcb->next = 0;
+  task_tcb->state = READY;
+  task_tcb->info = 0;
   task_tcb->sp = (int*)((char*)taskStack);
   task_tcb->ss = 0;
-  task_tcb->tick_num = 0;
   //  *(tcb->sp - 1) = INITIAL_FLAGS;
   //  *(tcb->sp - 2) = 0;
   *(task_tcb->sp - 5) = (int) 0;//bx
@@ -77,8 +76,11 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
   *(task_tcb->sp - 2) = 0;//cs register
   *(task_tcb->sp - 1) = INITIAL_FLAGS;//flags
   task_tcb->sp -= 3 * INTSIZE - 1;
+  
+  insert_task(task_tcb);
+  find_ready_task();
 
-  add_task(&ready_task,task_tcb);
+  //  add_task(&ready_task,task_tcb);
 
   YKScheduler();
 
@@ -104,9 +106,10 @@ void YKDelayTask(unsigned count){
   if(!count)
     return;
   YKEnterMutex();
-  task = pop_task(&ready_task);
-  task->tick_num = YKTickNum + count;
-  block_task(task);
+  task = active_task;
+  task->state = DELAYED;
+  task->info = YKTickNum + count;
+  find_ready_task();
   YKScheduler();
   YKExitMutex();
 }
@@ -126,13 +129,21 @@ void YKExitISR(void){
 }
 
 void YKTickHandler(void){
-  tcb_t* task;
+  tcb_t *task, *end;
+  int delta;
   YKTickNum++;
-  while(blocked_task && (blocked_task->tick_num <= YKTickNum)){
-    task = pop_task(&blocked_task);
-    task->tick_num = 0;
-    add_task(&ready_task,task);
+  delta = 0;
+  task = &tcb_memory[0];
+  end = &tcb_memory[tcb_dex];
+  for(;task < end;task++){
+    if(task->state == DELAYED && YKTickNum >= task->info){
+      task->state = READY;
+      task->info = 0;
+      delta = 1;
+    }
   }
+  if(delta)
+    find_ready_task();
 }
 
 YKSEM* YKSemCreate(int initial_value){
@@ -151,7 +162,6 @@ YKSEM* YKSemCreate(int initial_value){
   sem = semaphore_memory + sem_dex;
   sem->id = sem_dex++;
   sem->counter = initial_value;
-  sem->pend_task = 0;
 
   return sem;
 }
@@ -175,10 +185,10 @@ void YKSemPend(YKSEM* semaphore){
   YKEnterMutex();
   
   if(semaphore->counter-- <= 0){
-    task = ready_task;
-    ready_task = task->next;
-    //task = pop_task(&ready_task);
-    add_task(&semaphore->pend_task,task);
+    task = active_task;
+    task->state = PENDING;
+    task->info = semaphore->id;
+    find_ready_task();
     YKScheduler();
   }
   
@@ -187,7 +197,7 @@ void YKSemPend(YKSEM* semaphore){
 }
 
 void YKSemPost(YKSEM* semaphore){
-  tcb_t* task;
+  tcb_t **task_p, **end;
 
   //if(!semaphore){
   //  printString("YKSemPost called on null semaphore");
@@ -195,17 +205,19 @@ void YKSemPost(YKSEM* semaphore){
   //  return;
   //}
 
-  
-
   YKEnterMutex();
-
-  semaphore->counter++;
-  if(semaphore->pend_task != 0){
-    task = semaphore->pend_task;
-    semaphore->pend_task = task->next;
-    //task = pop_task(&semaphore->pend_task);
-    add_task(&ready_task,task);
-
+  
+  if(semaphore->counter++ <= 0){
+    task_p = &task_list[0];
+    end = &task_list[tcb_dex];
+    for(;task_p < end; task_p++){
+      if((*task_p)->state == PENDING && (*task_p)->info == semaphore->id){
+	(*task_p)->state = READY;
+	(*task_p)->info = 0;
+	find_ready_task();
+	break;
+      }
+    } 
     if(YKCallDepth == 0){
       YKScheduler();
     }
@@ -214,53 +226,24 @@ void YKSemPost(YKSEM* semaphore){
   YKExitMutex();
   return;
 }
- 
-static tcb_t* pop_task(tcb_t** root){
-  tcb_t* task = *root;
-  *root = task->next;
-  return task;
+
+static void find_ready_task(){
+  int i;
+  i = 0;
+
+  while(task_list[i]->state != READY){
+    i++;
+  }
+  ready_task = task_list[i];
 }
 
-static void add_task(tcb_t** root, tcb_t* task){
-  tcb_t* current;
-  task->next = 0;
-  if(*root == 0){
-    *root = task;
-    return;
-  }
-
-  if(task->priority < (*root)->priority){
-    task->next = *root;
-    *root = task;
-    return;
-  }
-
-  current = *root;
-  while(current->next && (current->next->priority < task->priority)){
-    current = current->next;
-  }
-  task->next = current->next;
-  current->next = task;
-}
-
-static void block_task(tcb_t* task){
-  tcb_t* current;
-  task->next = 0;
-  if(blocked_task == 0){
-    blocked_task = task;
-    return;
-  }
-  if(task->tick_num < blocked_task->tick_num){
-    task->next = blocked_task;
-    blocked_task = task;
-    return;
-  }
-  current =  blocked_task;
-  while(current->next && (current->next->tick_num < task->tick_num)){
-    current = current->next;
-  }
-  task->next = current->next;
-  current->next = task;
+static void insert_task(tcb_t* task){
+  int i;
+  i = tcb_dex - 1;
   
-  return;
+  while(i > 0 &&  task->priority < task_list[i-1]->priority){
+    task_list[i] = task_list[i-1];
+    i--;
+  }
+  task_list[i] = task;
 }
