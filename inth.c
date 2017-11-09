@@ -1,42 +1,38 @@
-//Broderick Gardner
-//EcEn 427
-//Lab 3 - Interrupts
+/* 
+File: lab6inth.c
+Revision date: 4 November 2009
+Description: Sample interrupt handler code for EE 425 lab 6 (Message queues)
+*/
 
-//Interrupt handlers
-
-
-#include "clib.h"
+#include "lab6defs.h"
 #include "yakk.h"
-#include "yaku.h"
+#include "clib.h"
 
-extern int KeyBuffer;
-extern YKSEM* NSemPtr;
+extern YKQ *MsgQPtr; 
+extern struct msg MsgArray[];
+extern int GlobalFlag;
 
-void reset_handler(){
-  exit(0);
-
+void myreset(void)
+{
+    exit(0);
 }
 
-void tick_handler(){
-  printNewLine();
-  printString("TICK ");
-  printUInt(YKTickNum);
-  printNewLine();
-}
+void mytick(void)
+{
+    static int next = 0;
+    static int data = 0;
 
-void key_handler(){
-  unsigned int wait_count = 5000;
-  printNewLine();
-  if((char) KeyBuffer == 'd'){
-    printString("\nDELAY KEY PRESSED");
-    while(wait_count-->0);
-    printNewLine();
-    printString("DELAY COMPLETE");
-  }else if((char) KeyBuffer == 'p'){
-    YKSemPost(NSemPtr);
-  }else{
-    printString("KEYPRESS (");
-    printChar((char) KeyBuffer);
-    printString(") IGNORED");
-  }
+    /* create a message with tick (sequence #) and pseudo-random data */
+    MsgArray[next].tick = YKTickNum;
+    data = (data + 89) % 100;
+    MsgArray[next].data = data;
+    if (YKQPost(MsgQPtr, (void *) &(MsgArray[next])) == 0)
+	printString("  TickISR: queue overflow! \n");
+    else if (++next >= MSGARRAYSIZE)
+	next = 0;
+}	       
+
+void mykeybrd(void)
+{
+    GlobalFlag = 1;
 }

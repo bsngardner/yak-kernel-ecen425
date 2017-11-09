@@ -13,8 +13,9 @@ reset_isr:
 	sti
 	call	YKEnterISR
 
-	call	reset_handler
-
+;;; call	reset_handler	
+	call 	myreset
+	
 	cli
 	call	signalEOI
 	call	YKExitISR
@@ -43,7 +44,8 @@ tick_isr:
 	call	YKEnterISR
 
 	call	YKTickHandler
-	call	tick_handler
+;;; 	call	tick_handler
+	call	mytick
 
 	cli
 	call	signalEOI
@@ -71,8 +73,9 @@ key_isr:
 	push	ds
 	sti
 	call	YKEnterISR
-	
-	call	key_handler
+
+;;; 	call	key_handler
+	call	mykeybrd
 
 	cli
 	call	signalEOI

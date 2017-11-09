@@ -16,6 +16,14 @@ typedef struct {
   tcb_t* pend_task;
 } YKSEM;
 
+typedef struct {
+  void** buffer;
+  int size;
+  int tail;
+  int count;
+  tcb_t* pend_task;
+}YKQ; //5 words / 10 bytes
+
 void YKInitialize(void);
 void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority);
 void YKRun(void);
@@ -28,7 +36,9 @@ void YKTickHandler(void);
 YKSEM* YKSemCreate(int initial_value);
 void YKSemPend(YKSEM* semaphore);
 void YKSemPost(YKSEM* semaphore);
-
+YKQ* YKQCreate(void **start, unsigned size);
+void *YKQPend(YKQ *queue);
+int YKQPost(YKQ *queue, void *msg);
 
 extern int YKIdleCount;
 extern int YKCallDepth;

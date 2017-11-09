@@ -31,6 +31,9 @@ int idle_stack[STACK_SIZE];
 YKSEM semaphore_memory[MAX_SEMAPHORE_COUNT];
 int sem_dex = 0;
 
+YKQ q_memory[MAX_QUEUE_COUNT];
+int q_dex = 0;
+
 int kernel_running = 0;
 
 int YKIdleCount = 0;
@@ -153,7 +156,7 @@ YKSEM* YKSemCreate(int initial_value){
 
 void YKSemPend(YKSEM* semaphore){
   tcb_t* task;
-  /*
+
   if(!semaphore){
     printString("YKSemPend called on null semaphore");
     printNewLine();
@@ -165,7 +168,6 @@ void YKSemPend(YKSEM* semaphore){
     printNewLine();
     return;
   }
-  */
   
   YKEnterMutex();
   
@@ -208,6 +210,96 @@ void YKSemPost(YKSEM* semaphore){
 
   YKExitMutex();
   return;
+}
+
+YKQ* YKQCreate(void **start, unsigned size){
+  YKQ* q;
+  if(q_dex >= MAX_QUEUE_COUNT){
+    printString("Out of available queue memory");
+    printNewLine();
+    return 0;
+  }
+
+  q = q_memory + q_dex++;
+  q->buffer = start;
+  q->size = size;
+  q->tail = 0;
+  q->count = 0;
+  q->pend_task = 0;
+  return q;
+}
+
+
+void* YKQPend(YKQ *queue){
+  void* msg;
+  tcb_t* task;
+
+  if(!queue || !queue->size){
+    printString("YKQPend called on invalid queue");
+    printNewLine();
+    return 0;
+  }
+
+  YKEnterMutex();
+
+  //Should this be a while or if
+  while(queue->count == 0){  //queue is empty, pend task
+    task = ready_task;
+    ready_task = ready_task->next;
+    add_task(&queue->pend_task,task);
+    YKScheduler();
+  }
+  
+  msg = *(queue->buffer + queue->tail);
+  queue->tail++;
+  if(queue->tail >= queue->size)
+    queue->tail -= queue->size;
+  queue->count--;
+
+  YKExitMutex();
+  return msg;
+    
+}
+
+
+int YKQPost(YKQ *queue, void *msg){
+  tcb_t* task;
+  int head;
+
+  if(!queue || !queue->size){
+    printString("YKQPost called on invalid queue");
+    printNewLine();
+    return 0;
+  }
+
+  YKEnterMutex();
+
+  if(queue->count == queue->size){
+    goto err_return; //queue is full
+  }
+
+  head = queue->tail + queue->count;
+  if(head >= queue->size)
+    head -= queue->size;
+  *(queue->buffer + head) = msg;
+  queue->count++;
+
+  if(queue->pend_task){
+    task = queue->pend_task;
+    queue->pend_task = task->next;
+    add_task(&ready_task,task);
+
+    if(YKCallDepth == 0){
+      YKScheduler();
+    }
+  }
+
+  YKExitMutex();
+  return 1;
+
+ err_return:
+  YKExitMutex();
+  return 0; //return with error
 }
  
 static tcb_t* pop_task(tcb_t** root){
