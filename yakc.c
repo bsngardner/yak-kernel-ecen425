@@ -69,12 +69,19 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
   task_tcb->tick_num = 0;
   //  *(tcb->sp - 1) = INITIAL_FLAGS;
   //  *(tcb->sp - 2) = 0;
+  *(task_tcb->sp - 12) = (int) 0;//ds
+  *(task_tcb->sp - 11) = (int) 0;//es
+  *(task_tcb->sp - 10) = (int) 0;//bp
+  *(task_tcb->sp - 9) = (int) 0;//di
+  *(task_tcb->sp - 8) = (int) 0;//si
+  *(task_tcb->sp - 7) = (int) 0;//dx
+  *(task_tcb->sp - 6) = (int) 0;//cx
   *(task_tcb->sp - 5) = (int) 0;//bx
-  *(task_tcb->sp - 4) = (int) 0;//bp
+  *(task_tcb->sp - 4) = (int) 0;//ax
   *(task_tcb->sp - 3) = (int) task;//start point
   *(task_tcb->sp - 2) = 0;//cs register
   *(task_tcb->sp - 1) = INITIAL_FLAGS;//flags
-  task_tcb->sp -= 3 * INTSIZE - 1;
+  task_tcb->sp -= 12;
 
   add_task(&ready_task,task_tcb);
 
@@ -107,20 +114,6 @@ void YKDelayTask(unsigned count){
   block_task(task);
   YKScheduler();
   YKExitMutex();
-}
-
-void YKEnterISR(void){
-     //Increment call depth counter
-  YKCallDepth++;
-}
-
-void YKExitISR(void){
-     //Decrement call depth counter
-     //If the call depth is 0, call scheduler
-     //Return
-  if((--YKCallDepth) == 0){
-    YKScheduler();
-  }
 }
 
 void YKTickHandler(void){
