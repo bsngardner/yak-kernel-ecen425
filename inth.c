@@ -5,6 +5,7 @@ Description: Sample interrupt handler code for EE 425 lab 6 (Message queues)
 */
 
 #include "lab6defs.h"
+#include "lab7defs.h"
 #include "yakk.h"
 #include "clib.h"
 
