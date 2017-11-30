@@ -5,5 +5,6 @@
 #define MAX_TCB_COUNT 8
 #define MAX_SEMAPHORE_COUNT 8
 #define MAX_QUEUE_COUNT 8
+#define MAX_EVENT_GROUP_COUNT 8
 
 #endif /* YAKU_H */

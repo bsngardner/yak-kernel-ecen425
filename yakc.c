@@ -34,6 +34,9 @@ int sem_dex = 0;
 YKQ q_memory[MAX_QUEUE_COUNT];
 int q_dex = 0;
 
+YKEVENT event_memory[MAX_EVENT_GROUP_COUNT];
+int event_dex = 0;
+
 int kernel_running = 0;
 
 int YKIdleCount = 0;
@@ -157,7 +160,7 @@ void YKSemPend(YKSEM* semaphore){
   }
   
   if(YKCallDepth > 0){
-    printString("YKSemPost called within interrupt");
+    printString("YKSemPend called within interrupt");
     printNewLine();
     return;
   }
@@ -293,6 +296,100 @@ int YKQPost(YKQ *queue, void *msg){
  err_return:
   YKExitMutex();
   return 0; //return with error
+}
+
+YKEVENT *YKEventCreate(unsigned initialValue){
+  YKEVENT* event;
+  if(event_dex >= MAX_EVENT_GROUP_COUNT){
+    printString("Out of available event memory");
+    printNewLine();
+    return 0;
+  }
+
+  event = event_memory + event_dex;
+  event->id = event_dex++;
+  event->flags = initialValue;
+  event->pend_task = 0;
+
+  return event;
+}
+
+unsigned YKEventPend(YKEVENT *event, unsigned eventMask, int waitMode){
+  tcb_t* task;
+  unsigned wait_value;
+  
+  if(!event){
+    printString("YKEventPend called on null event group");
+    printNewLine();
+    return event->flags;
+  }
+
+  if(YKCallDepth > 0){
+    printString("YKEventPend called within interrupt");
+    printNewLine();
+    return event->flags;
+  }
+
+  YKEnterMutex();
+  if(waitMode > EVENT_WAIT_ANY){
+    printString("YKEventPend called with invalid wait mode");
+    printNewLine();
+    return event->flags;
+  }
+
+  if(((waitMode == EVENT_WAIT_ALL) && ((event->flags & eventMask) != eventMask)) || ((waitMode == EVENT_WAIT_ANY) && ((event->flags & eventMask) == 0))){
+    task = ready_task;
+    ready_task = task->next;
+    task->next = event->pend_task;
+    event->pend_task = task;
+    event->status[task->id].event_mask = eventMask;
+    event->status[task->id].wait_mode = waitMode;
+    YKScheduler();
+  }
+
+  YKExitMutex();
+  return event->flags;
+}
+
+void YKEventSet(YKEVENT *event, unsigned eventMask){
+  tcb_t* task;
+  tcb_t* prev;
+  unsigned event_mask;
+  unsigned wait_mode;
+
+  YKEnterMutex();
+
+  event->flags |= eventMask;
+  task = event->pend_task;
+  prev = 0;
+  while(task){
+    event_mask = event->status[task->id].event_mask;
+    wait_mode = event->status[task->id].wait_mode;
+    if(((wait_mode == EVENT_WAIT_ALL) && ((event->flags & event_mask) == event_mask)) || ((wait_mode == EVENT_WAIT_ANY) && ((event->flags & event_mask) != 0))){
+      if(prev){
+	prev->next = task->next;
+	add_task(&ready_task,task);
+	task = prev->next;
+      }else{
+	event->pend_task = task->next;
+	add_task(&ready_task,task);
+	task = event->pend_task;
+      }
+
+    }else{
+      prev = task;
+      task = task->next;
+    }
+  }
+
+  YKExitMutex();
+  return;
+}
+
+void YKEventReset(YKEVENT *event, unsigned eventMask){
+  YKEnterMutex();
+  event->flags &= ~eventMask;
+  YKExitMutex();
 }
  
 static tcb_t* pop_task(tcb_t** root){
