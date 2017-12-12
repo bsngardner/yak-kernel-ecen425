@@ -5,10 +5,19 @@ run.bin: run.s
 
 run.s: kern.s app.s
 	cat kern.s app.s > run.s
+	sed -i "$(_LINE_NUM)s,dd      0 ; Simptris Game Over  ; Int 0Bh (IRQ 3),dd      gameover_isr ; Simptris Game Over  ; Int 0Bh (IRQ 3)," run.s
+	sed -i "$(_LINE_NUM)s,dd      0 ; Simptris New Piece  ; Int 0Ch (IRQ 4),dd      newpiece_isr ; Simptris New Piece  ; Int 0Ch (IRQ 4)," run.s
+	sed -i "$(_LINE_NUM)s,dd      0 ; Simptris Received   ; Int 0Dh (IRQ 5),dd      command_isr ; Simptris Received   ; Int 0Dh (IRQ 5)," run.s
+	sed -i "$(_LINE_NUM)s,dd      0 ; Simptris Touchdown  ; Int 0Eh (IRQ 6),dd      touchdown_isr ; Simptris Touchdown  ; Int 0Eh (IRQ 6)," run.s
+	sed -i "$(_LINE_NUM)s,dd      0 ; Simptris Clear      ; Int 0Fh (IRQ 7),dd      lineclear_isr ; Simptris Clear      ; Int 0Fh (IRQ 7)," run.s
 
-app.s: lab7app.c lab7defs.h
-	cpp lab7app.c app.i
-	c86 -g app.i app.s
+app.s: simptris-isr.s simptris-ih.c simpmain.c simptris.h simptris.s
+	cpp simpmain.c main.i
+	c86 -g main.i main.s
+	cpp simptris-ih.c sih.i
+	c86 -g sih.i sih.s
+	cat simptris.s simptris-isr.s sih.s main.s > app.s
+
 
 kern.s: clib.s isr.s inth.s yakc.s yaks.s
 	cat clib.s isr.s inth.s yakc.s yaks.s > kern.s
