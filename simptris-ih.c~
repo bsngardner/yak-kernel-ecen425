@@ -1,0 +1,42 @@
+/*
+ * Simptris interrupt handlers
+ *
+ *
+*/
+
+#include "clib.h"
+#include "simptris.h"
+
+extern unsigned NewPieceID;
+extern unsigned NewPieceType;
+extern unsigned NewPieceOrientation;
+extern unsigned NewPieceColumn;
+
+extern unsigned ScreenBitMap0;
+extern unsigned ScreenBitMap1;
+extern unsigned ScreenBitMap2;
+extern unsigned ScreenBitMap3;
+extern unsigned ScreenBitMap4;
+extern unsigned ScreenBitMap5;
+
+//Game is over
+void gameover_handler(){
+
+}
+
+//New piece has appeared 
+void newpiece_handler(){
+
+}
+
+void command_handler(){
+
+}
+
+void touchdown_handler(){
+
+}
+
+void lineclear_handler(){
+
+}
