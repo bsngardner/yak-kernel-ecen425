@@ -1,5 +1,6 @@
 # yak-kernel-ecen425
 The YAK kernel runs on a simulated 8080, compiled by a modified C86 compiler and assembled by NASM
+Implementing this kernel is a class project for BYU EcEn 425 - Real Time Operating Systems.  
 
 ## Kernel files
 yaku.h : User header file, used to set some kernel parameters
