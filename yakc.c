@@ -1,4 +1,3 @@
-
 #include "clib.h"
 #include "yaku.h"
 #include "yakk.h"
@@ -44,6 +43,7 @@ int YKCallDepth = 0;
 int YKCtxSwCount = 0;
 int YKTickNum = 0;
 
+//Creates internal idle task. Call once from main thread
 void YKInitialize(void){
 
   YKNewTask(YKIdleTask, &idle_stack[STACK_SIZE], LOWEST_PRIORITY);
@@ -53,6 +53,7 @@ void YKInitialize(void){
      //profit
 }
 
+//Create a task given entry point, stack, and priority
 void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
   tcb_t* task_tcb;
   YKEnterMutex();
@@ -62,6 +63,7 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
     return;
   }
 
+  //init task TCB, including stack
   task_tcb = tcb_memory + tcb_dex;
   task_tcb->id = tcb_dex++;
   //  task_tcb->state = 1;   //Removed -- unneeded for linked list implementation
@@ -96,6 +98,7 @@ void YKNewTask(void (* task)(void), void *taskStack, unsigned char priority){
      //
 }
 
+//Calls the scheduler for the first time (scheduler does not activate on idle task create)
 void YKRun(void){
      //Calls the scheduler, sets global variable to activate user tasks
   kernel_running = 1;
@@ -104,6 +107,7 @@ void YKRun(void){
   YKExitMutex();
 }
 
+//Delay calling task a number of ticks
 void YKDelayTask(unsigned count){
      //If count == 0; return
      //Remove TCB from ready queue
@@ -119,6 +123,9 @@ void YKDelayTask(unsigned count){
   YKExitMutex();
 }
 
+//Handles ticks by activating a task when it is done being delayed
+//blocked task is a sorted linked list by the tick number when the task
+//  will activate
 void YKTickHandler(void){
   tcb_t* task;
   YKTickNum++;
@@ -129,6 +136,7 @@ void YKTickHandler(void){
   }
 }
 
+//Create semaphore
 YKSEM* YKSemCreate(int initial_value){
   YKSEM* sem;
   if(sem_dex >= MAX_SEMAPHORE_COUNT){
@@ -150,6 +158,10 @@ YKSEM* YKSemCreate(int initial_value){
   return sem;
 }
 
+
+//Pend on semaphore.
+// If the semaphore is available, return
+// If the semaphore is taken, pend task
 void YKSemPend(YKSEM* semaphore){
   tcb_t* task;
 
@@ -158,7 +170,7 @@ void YKSemPend(YKSEM* semaphore){
     printNewLine();
     return;
   }
-  
+
   if(YKCallDepth > 0){
     printString("YKSemPend called within interrupt");
     printNewLine();
@@ -179,6 +191,8 @@ void YKSemPend(YKSEM* semaphore){
   return;
 }
 
+//Post to semaphore. activate any pending tasks and activate
+//  highest priority task
 void YKSemPost(YKSEM* semaphore){
   tcb_t* task;
 
@@ -208,6 +222,7 @@ void YKSemPost(YKSEM* semaphore){
   return;
 }
 
+//Create queue. Implemented as ring buffer of void*
 YKQ* YKQCreate(void **start, unsigned size){
   YKQ* q;
   if(q_dex >= MAX_QUEUE_COUNT){
@@ -226,6 +241,7 @@ YKQ* YKQCreate(void **start, unsigned size){
 }
 
 
+//Pend on queue
 void* YKQPend(YKQ *queue){
   void* msg;
   tcb_t* task;
@@ -257,7 +273,7 @@ void* YKQPend(YKQ *queue){
     
 }
 
-
+//Post to queue
 int YKQPost(YKQ *queue, void *msg){
   tcb_t* task;
   int head;
@@ -298,6 +314,7 @@ int YKQPost(YKQ *queue, void *msg){
   return 0; //return with error
 }
 
+//Create event set
 YKEVENT *YKEventCreate(unsigned initialValue){
   YKEVENT* event;
   if(event_dex >= MAX_EVENT_GROUP_COUNT){
@@ -314,6 +331,7 @@ YKEVENT *YKEventCreate(unsigned initialValue){
   return event;
 }
 
+//Pend on event object
 unsigned YKEventPend(YKEVENT *event, unsigned eventMask, int waitMode){
   tcb_t* task;
   unsigned wait_value;
@@ -351,6 +369,7 @@ unsigned YKEventPend(YKEVENT *event, unsigned eventMask, int waitMode){
   return event->flags;
 }
 
+//Set event
 void YKEventSet(YKEVENT *event, unsigned eventMask){
   tcb_t* task;
   tcb_t* prev;
@@ -386,18 +405,21 @@ void YKEventSet(YKEVENT *event, unsigned eventMask){
   return;
 }
 
+//Reset event flags
 void YKEventReset(YKEVENT *event, unsigned eventMask){
   YKEnterMutex();
   event->flags &= ~eventMask;
   YKExitMutex();
 }
- 
+
+//Internal helper - pop task from linked list
 static tcb_t* pop_task(tcb_t** root){
   tcb_t* task = *root;
   *root = task->next;
   return task;
 }
 
+//Internal helper - add task to linked list, Sorted by priority
 static void add_task(tcb_t** root, tcb_t* task){
   tcb_t* current;
   task->next = 0;
@@ -420,6 +442,7 @@ static void add_task(tcb_t** root, tcb_t* task){
   current->next = task;
 }
 
+//Internal helper - same as add_task, but sorts by tick_num. Used for delayed tasks
 static void block_task(tcb_t* task){
   tcb_t* current;
   task->next = 0;
